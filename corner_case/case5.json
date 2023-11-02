@@ -1,0 +1,54 @@
+{
+    "seed": 1688574347,
+    "map": "Carla/Maps/Town03",
+    "sp": {
+        "x": 62.06,
+        "y": -192.23,
+        "z": 0.0,
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "roll": 0.0
+    },
+    "dp": {
+        "x": 48.72,
+        "y": -137.26,
+        "z": 4.97,
+        "pitch": 0.0,
+        "yaw": -179.15,
+        "roll": 0.0
+    },
+    "weather": {
+        "cloud": 46,
+        "precipitation": 0,
+        "precipitation_deposits": 0,
+        "wind": 0,
+        "fog": 26,
+        "wetness": 27,
+        "sun_azimuth_angle": 48,
+        "sun_altitude_angle": 78
+    },
+    "npc_list": [
+        {
+            "type": 0,
+            "nav_type": 1,
+            "blueprint": "vehicle.mini.cooper_s",
+            "speed": 5,
+            "sp": {
+                "x": 82.69561004638672,
+                "y": -184.77346801757812,
+                "z": 1.5,
+                "pitch": -0.39662906527519226,
+                "yaw": 90.153564453125,
+                "roll": 1.334053223445153e-08
+            },
+            "dp": {
+                "x": 54.12854766845703,
+                "y": -196.1438446044922,
+                "z": 0.27530714869499207,
+                "pitch": 0.0,
+                "yaw": 0.0,
+                "roll": 0.0
+            }
+        }
+    ]
+}

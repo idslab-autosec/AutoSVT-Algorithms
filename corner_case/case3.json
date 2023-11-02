@@ -1,0 +1,33 @@
+{
+    "seed": 1689681912,
+    "map": "Carla/Maps/Town03",
+    "sp": {
+        "x": 120.69,
+        "y": -194.29,
+        "z": 0.2,
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "roll": 0.0
+    },
+    "dp": {
+        "x": 238.43,
+        "y": -131.41,
+        "z": 0.2,
+        "pitch": 0.0,
+        "yaw": 90,
+        "roll": 0.0
+    },
+    "weather": {
+        "cloud": 56,
+        "precipitation": 30,
+        "precipitation_deposits": 64,
+        "wind": 13,
+        "fog": 88,
+        "wetness": 93,
+        "sun_azimuth_angle": 23,
+        "sun_altitude_angle": 66
+    },
+    "npc_list": [
+
+    ]
+}

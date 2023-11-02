@@ -1,0 +1,47 @@
+{
+    "seed": 1688431100,
+    "map": "Carla/Maps/Town03",
+    "sp": {
+        "x": -35.0,
+        "y": 134.34,
+        "z": 0.6,
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "roll": 0.0
+    },
+    "dp": {
+        "x": -45.3,
+        "y": 134.34,
+        "z": 0.6,
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "roll": 0.0
+    },
+    "weather": {
+        "cloud": 10,
+        "precipitation": 0,
+        "precipitation_deposits": 0,
+        "wind": 32,
+        "fog": 51,
+        "wetness": 10,
+        "sun_azimuth_angle": 27,
+        "sun_altitude_angle": 60
+    },
+    "npc_list": [
+        {
+            "type": 0,
+            "nav_type": 2,
+            "blueprint": "vehicle.jeep.wrangler_rubicon",
+            "speed": 0,
+            "sp": {
+                "x": -15.0,
+                "y": 134.34,
+                "z": 0.5,
+                "pitch": 0.0,
+                "yaw": 0.0,
+                "roll": 0.0
+            },
+            "dp": null
+        }
+    ]
+}

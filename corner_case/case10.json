@@ -1,0 +1,98 @@
+{
+    "seed": 10,
+    "map": "Carla/Maps/Town03",
+    "sp": {
+        "x": 84.74,
+        "y": -118.75,
+        "z": 10,
+        "pitch": 0.0,
+        "yaw": -90,
+        "roll": 0.0
+    },
+    "dp": {
+        "x": 10.57,
+        "y": -161.45,
+        "z": 0.6,
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "roll": 0.0
+    },
+    "weather": {
+        "cloud": 61,
+        "precipitation": 36,
+        "precipitation_deposits": 87,
+        "wind": 18,
+        "fog": 50,
+        "wetness": 27,
+        "sun_azimuth_angle": 157,
+        "sun_altitude_angle": 83
+    },
+    "npc_list": [
+        {
+            "type": 0,
+            "nav_type": 1,
+            "blueprint": "vehicle.kawasaki.ninja",
+            "speed": 6.9527356351100975,
+            "sp": {
+                "x": 81.36341857910156,
+                "y": -124.47649383544922,
+                "z": 1.5,
+                "pitch": 0.0,
+                "yaw": 92.02410888671875,
+                "roll": 0.0
+            },
+            "dp": {
+                "x": 7.903517723083496,
+                "y": -57.52961349487305,
+                "z": 1.5,
+                "pitch": 0.0,
+                "yaw": 0.0,
+                "roll": 0.0
+            }
+        },
+        {
+            "type": 0,
+            "nav_type": 1,
+            "blueprint": "vehicle.nissan.patrol_2021",
+            "speed": 29.307056528682047,
+            "sp": {
+                "x": 73.19366455078125,
+                "y": -136.70431518554688,
+                "z": 10,
+                "pitch": -0.6473106741905212,
+                "yaw": -178.77268981933594,
+                "roll": 8.338165713439594e-10
+            },
+            "dp": {
+                "x": 52.77627944946289,
+                "y": 3.684684991836548,
+                "z": 10,
+                "pitch": 0.0,
+                "yaw": 0.0,
+                "roll": 0.0
+            }
+        },
+        {
+            "type": 0,
+            "nav_type": 1,
+            "blueprint": "vehicle.ford.ambulance",
+            "speed": 20,
+            "sp": {
+                "x": 90,
+                "y": -136.14,
+                "z": 10,
+                "pitch": 0.0,
+                "yaw": 185,
+                "roll": 0.0
+            },
+            "dp": {
+                "x": 80,
+                "y": -108.8,
+                "z": 10,
+                "pitch": 0.0,
+                "yaw": 0.0,
+                "roll": 0.0
+            }
+        }
+    ]
+}
