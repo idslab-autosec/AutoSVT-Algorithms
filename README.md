@@ -4,7 +4,7 @@ This project presents a meta-heuristic algorithm aimed at discovering corner cas
 Please visit [AutoSVT](https://idslab-autosec.github.io/) for more information.
 
 ## Installation
-1. Install the AutoSVT-CARLA Python package. Please refer to [AutoSVT-Bridge](https://github.com/idslab-autosec/AutoSVT-Carla-Apollo-Bridge) for instructions.
+1. Install the AutoSVT-Carla Python package. Please refer to [AutoSVT-Bridge](https://github.com/idslab-autosec/AutoSVT-Carla-Apollo-Bridge) for instructions.
 2. Install scipy.
     ```bash
     pip install scipy
