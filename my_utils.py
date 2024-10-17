@@ -3,17 +3,16 @@ import time
 import math
 import random
 import constants as const
-
+from typing import List
 import carla
 from scipy.spatial.transform import Rotation
 
 from modules.common_msgs.localization_msgs.localization_pb2 import LocalizationEstimate
-from modules.common_msgs.perception_msgs.perception_obstacle_pb2 import (
-    PerceptionObstacles,
-)
+# from modules.common_msgs.perception_msgs.perception_obstacle_pb2 import PerceptionObstacles
 from modules.common_msgs.planning_msgs.planning_pb2 import ADCTrajectory
 from modules.common_msgs.routing_msgs.routing_pb2 import RoutingRequest, LaneWaypoint
 from states import State
+import numpy as np
 
 class NPC(object):
     def __init__(self, type=const.VEHICLE, nav_type=const.AUTOPILOT, speed=10):
@@ -23,11 +22,15 @@ class NPC(object):
         self.blueprint = None  # carla.ActorBlueprint
         self.sp = carla.Transform()
         self.dp = carla.Transform()
+        self.bbox = carla.Vector3D()
+    def get_bbox(self, bbox_extent: carla.Vector3D) -> None:
+        self.bbox.x = bbox_extent.x * 2
+        self.bbox.y = bbox_extent.y * 2
+        self.bbox.z = bbox_extent.z * 2
 
-
-class Modification(object):
+class Mutation(object):
     def __init__(self):
-        self.type = const.MOD_UNKNOW
+        self.type = const.MUT_UNKNOW
         self.index = -1
         self.old_value = None
         self.new_value = None
@@ -36,16 +39,16 @@ class Modification(object):
 
     def print_modification(self):
         m_str_dict = {
-            const.MOD_NPC_BP: "npc_list[{}] bluepint".format(self.index),
-            const.MOD_NPC_DST: "npc_list[{}] destination".format(self.index),
-            const.MOD_NPC_SPEED: "npc_list[{}] speed".format(self.index),
-            const.MOD_PD: "precipitation deposits",
-            const.MOD_SUN: "sun altitude angle",
-            const.MOD_ADD_NPC: "new npc",
+            const.MUT_NPC_BP: "npc_list[{}] bluepint".format(self.index),
+            const.MUT_NPC_DST: "npc_list[{}] destination".format(self.index),
+            const.MUT_NPC_SPEED: "npc_list[{}] speed".format(self.index),
+            const.MUT_WEATHER_PD: "precipitation deposits",
+            const.MUT_WEATHER_SUN_AL: "sun altitude angle",
+            const.MUT_NPC_ADD: "new npc",
         }
-        if self.type == const.MOD_ADD_NPC:
+        if self.type == const.MUT_NPC_ADD:
             print("[+] Add a new NPC [{}]".format(self.new_value.blueprint.id))
-        elif self.type == const.MOD_NPC_BP:
+        elif self.type == const.MUT_NPC_BP:
             print(
                 "[+] Modify {}: {} -> {}".format(
                     m_str_dict[self.type], self.old_value.id, self.new_value.id
@@ -90,6 +93,27 @@ class Factor(object):
         elif tmp == 5:
             self.slope = True
             return "slope"
+
+class ActorTrajectory(object):
+    def __init__(self, id) -> None:
+        self.actor_id = id
+        self.x = []
+        self.y = []
+        self.z = []
+        self.yaw = []
+        self.v = []
+    def append(self, x, y, z, yaw, v) -> None:
+        self.x.append(x)
+        self.y.append(y)
+        self.z.append(z)
+        self.yaw.append(yaw)
+        self.v.append(v)
+    def append_transform(self, tf: carla.Transform, v) -> None:
+        self.x.append(tf.location.x)
+        self.y.append(tf.location.y)
+        self.z.append(tf.location.z)
+        self.yaw.append(tf.rotation.yaw)
+        self.v.append(v)
 
 def get_ego_vehicle(world):
     world.wait_for_tick()
@@ -207,30 +231,31 @@ def check_arrival(localization_data: LocalizationEstimate, state: State):
         state.arrival = False
 
 
-def check_obstacle_detection(
-    perception_obstacle_data: PerceptionObstacles, state: State, carla_map, ego
-):
-    apollo_obstacles_list = []
-    for obs in perception_obstacle_data.perception_obstacle:
-        obs_location = carla.Location(
-            x=obs.position.x, y=-obs.position.y, z=obs.position.z
-        )
-        if obs_location.distance(ego.get_location()) > const.DETECTION_RANGE:
-            continue
-        obs_waypoint = carla_map.get_waypoint(
-            obs_location,
-            project_to_road=False,
-            lane_type=carla.LaneType.Driving | carla.LaneType.Shoulder,
-        )
-        if obs_waypoint is not None:
-            apollo_obstacles_list.append(obs_location)
-    state.apollo_obs_list = apollo_obstacles_list
+# def check_obstacle_detection(
+#     perception_obstacle_data: PerceptionObstacles, state: State, carla_map, ego
+# ):
+#     apollo_obstacles_list = []
+#     for obs in perception_obstacle_data.perception_obstacle:
+#         obs_location = carla.Location(
+#             x=obs.position.x, y=-obs.position.y, z=obs.position.z
+#         )
+#         if obs_location.distance(ego.get_location()) > const.DETECTION_RANGE:
+#             continue
+#         obs_waypoint = carla_map.get_waypoint(
+#             obs_location,
+#             project_to_road=False,
+#             lane_type=carla.LaneType.Driving | carla.LaneType.Shoulder,
+#         )
+#         if obs_waypoint is not None:
+#             apollo_obstacles_list.append(obs_location)
+#     state.apollo_obs_list = apollo_obstacles_list
 
 
 def check_planning(planning_data, state: State):
+    state.route_distace_to_dst = planning_data.debug.planning_data.routing.measurement.distance
     if planning_data.decision.main_decision.cruise.change_lane_type != 0:
         state.change_lane = True
-    if planning_data.debug.planning_data.routing.measurement.distance >= const.MAX_ROUTE_DISTANCE:
+    if state.route_distace_to_dst >= const.MAX_ROUTE_DISTANCE:
         state.route_too_long = True
     else:
         state.route_too_long = False
@@ -273,3 +298,88 @@ def calculate_false_results(detected_obstacles, npc_actors):
             # print("[!] false positive: {}".format(obs))
 
     return false_negatives, false_positives
+
+def calculate_velocity(velocity_vector) -> float:
+    # return velocity in km/h
+    return 3.6 * math.sqrt(
+        velocity_vector.x**2
+        + velocity_vector.y**2
+        + velocity_vector.z**2
+    )
+    
+def find_max_delta(l, window_size=const.WINDOW_SIZE):
+    max_delta = float('-inf')
+    ret_delta = 0
+
+    for i in range(len(l) - window_size + 1):
+        window = l[i:i + window_size]
+        delta = max(window) - min(window)
+        
+        if delta > max_delta:
+            max_delta = delta
+            max_index = window.index(max(window))
+            min_index = window.index(min(window))
+            
+            if max_index > min_index:
+                ret_delta = delta
+            else:
+                ret_delta = -delta
+
+    return ret_delta
+
+def count_npcs_in_fov(actor_traj_list: List[ActorTrajectory], fov_distance=const.FOV_DISTANCE, fov_angle=const.FOV_ANGLE):
+    ego_x_list = actor_traj_list[0].x
+    ego_y_list = actor_traj_list[0].y
+    ego_yaw_list = actor_traj_list[0].yaw
+    count = 0
+    # ego_yaw_rad = math.radians(ego_yaw)
+    
+    for traj in actor_traj_list[1:]:
+        for i in range(len(traj.x)):
+            npc_x = traj.x[i]
+            npc_y = traj.y[i]
+        
+            distance = math.sqrt((npc_x - ego_x_list[i]) ** 2 + (npc_y - ego_y_list[i]) ** 2)
+        
+            if distance <= fov_distance:
+                npc_angle = math.atan2(npc_y - ego_y_list[i], npc_x - ego_x_list[i])
+                npc_angle_deg = math.degrees(npc_angle)
+                angle_diff = (npc_angle_deg - ego_yaw_list[i] + 180) % 360 - 180
+                if -fov_angle <= angle_diff <= fov_angle:
+                    count += 1
+    
+    return count
+
+
+def calculate_fog_noise_rate(raw_lidar_data, state: State) -> float:
+    lidar_data_dtype = np.dtype([
+            ('x', np.float32),
+            ('y', np.float32),
+            ('z', np.float32),
+            ('intensity', np.float32),
+            ('object_tag', np.uint32),
+        ])
+    lidar_data = np.fromstring(bytes(raw_lidar_data.raw_data), dtype=lidar_data_dtype)
+    tags = lidar_data["object_tag"]
+    fog_noise_num = np.sum(tags == 29)
+    state.fog_noise_rate = fog_noise_num / tags.shape[0]
+    
+def softmax(x):
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=0)
+
+def select_scenario_by_score(scenarios: List, n=1):
+    if n > len(scenarios):
+        raise ValueError("n must be less than or equal to the number of scenarios.")
+    
+    scores = np.array([s.score for s in scenarios])
+    probabilities = softmax(scores)
+    selected_index = np.random.choice(len(scenarios), size=n, replace=False, p=probabilities)
+    return selected_index
+
+def subtract_lists(list1, list2):
+    if len(list1) != len(list2):
+        raise ValueError("两个列表的长度必须相同")
+    
+    result = [a - b for a, b in zip(list1, list2)]
+    return result

@@ -1,4 +1,4 @@
-from scenario import Scenario, init_unique_scenario
+from scenario import *
 from my_utils import *
 import constants as const
 from states import State
@@ -83,7 +83,7 @@ def optimize(scenario: Scenario, max_cycle: int):
                 print("[*] Choose factor: {}".format(factor_str))
 
             m = scenario.random_modify(T, factor)
-            m.old_obj = scenario.objective_function_value
+            m.old_obj = scenario.score
             m.print_modification()
 
             sim_ret = scenario.run_simulation()
@@ -125,10 +125,10 @@ def optimize(scenario: Scenario, max_cycle: int):
                         "type": modify_str_list[modify.type],
                         "index": modify.index,
                     }
-                    if modify.type == const.MOD_ADD_NPC:
+                    if modify.type == const.MUT_NPC_ADD:
                         modify_dict["old_value"] = None
                         modify_dict["new_value"] = modify.new_value.blueprint.id
-                    elif modify.type == const.MOD_NPC_BP:
+                    elif modify.type == const.MUT_NPC_BP:
                         modify_dict["old_value"] = modify.old_value.id
                         modify_dict["new_value"] = modify.new_value.id
                     else:
@@ -150,7 +150,7 @@ def optimize(scenario: Scenario, max_cycle: int):
                 ) as f:
                     json.dump(record_dict, f)
                 return const.CORNER_CASE
-            m.new_obj = scenario.objective_function_value
+            m.new_obj = scenario.score
             if m.new_obj < m.old_obj:
                 print("[*] Accept the modification")
             else:
@@ -167,6 +167,59 @@ def optimize(scenario: Scenario, max_cycle: int):
                     print("[*] Refuse the modification (rollback)")
         T = T * const.COOLING_FACTOR
 
+def genentic_algorithm(scenario_list: List[Scenario], mutation_prob: float, max_sim=200):
+    total_sim = len(scenario_list)
+    total_corner_case = 0
+    # 1. run simulation for all initial scenarios
+    # population_size = len(scenario_list)
+    # for scenario in scenario_list:
+    #     sim_ret = scenario.run_simulation(total_sim)
+    #     scenario.print_simulation_result()
+    #     total_sim += 1
+    #     if sim_ret == const.CORNER_CASE:
+    #         total_corner_case += 1
+    #     scenario.objective_function(total_sim)
+    #     if sim_ret == const.ROUTE_TOO_LONG:
+    #         total_sim -= 1
+    #         scenario_list.remove(scenario)
+            
+
+    while total_sim < max_sim:
+        # 2. crossover
+        # update score for every scenario 
+        for scenario in scenario_list:
+            scenario.objective_function(total_sim) 
+        selected_i = select_scenario_by_score(scenario_list, 2)
+        child1, child2 = crossover(scenario_list[selected_i[0]], scenario_list[selected_i[1]])
+        scenario_list[selected_i[0]] = child1
+        scenario_list[selected_i[1]] = child2
+        # run simulation for child scenarios
+        for i in selected_i:
+            sim_ret = scenario_list[i].run_simulation(total_sim)
+            scenario_list[i].print_simulation_result()
+            total_sim += 1
+            if sim_ret == const.CORNER_CASE:
+                total_corner_case += 1
+            if sim_ret == const.ROUTE_TOO_LONG:
+                total_sim -= 1
+        for i in selected_i:
+            scenario_list[i].objective_function(total_sim)
+        
+        # 3. mutation (children)
+        for i in selected_i:
+            if random.random() < mutation_prob:
+                scenario_list[i].mutate()
+                sim_ret = scenario_list[i].run_simulation(total_sim)
+                scenario_list[i].print_simulation_result()
+                total_sim += 1
+                if sim_ret == const.CORNER_CASE:
+                    total_corner_case += 1
+                if sim_ret == const.ROUTE_TOO_LONG:
+                    total_sim -= 1
+        for i in selected_i:
+            scenario_list[i].objective_function(total_sim)
+        
+        
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Discovering corner cases.")
@@ -246,13 +299,38 @@ def main():
     else:
         ads_type = const.OTHER
 
-    sim_round = 0
-    while sim_round < args.num_scenario:
+    ### SA
+    # sim_round = 0
+    # while sim_round < args.num_scenario:
+    #     scenario = init_unique_scenario(client, state, scenario_list, factor, ads_type)
+    #     scenario_list.append(scenario)
+    #     ret = optimize(scenario, args.max_cycle)
+    #     if ret != const.ROUTE_TOO_LONG:
+    #         sim_round += 1
+    
+    ### GA
+
+    # population size = args.num_scenario
+    # total_sim = args.num_scenario
+    total_sim = 0
+    for _ in range(args.num_scenario):
         scenario = init_unique_scenario(client, state, scenario_list, factor, ads_type)
         scenario_list.append(scenario)
-        ret = optimize(scenario, args.max_cycle)
-        if ret != const.ROUTE_TOO_LONG:
-            sim_round += 1
+    # for scenario in scenario_list:
+    while total_sim < args.num_scenario:
+        sim_ret = scenario_list[total_sim].run_simulation(total_sim)
+        scenario_list[total_sim].print_simulation_result()
+        scenario_list[total_sim].objective_function(args.num_scenario)
+        if sim_ret == const.ROUTE_TOO_LONG:
+            scenario_list.pop(total_sim)
+            new_scenario = init_unique_scenario(client, state, scenario_list, factor, ads_type)
+            scenario_list.append(new_scenario)
+        else:
+            scenario_list[total_sim].record_scenario()
+            total_sim += 1
+            
+    print("[*] Finish initialization. Population size = {}.\n".format(args.num_scenario))
+    genentic_algorithm(scenario_list, mutation_prob=0.5)
         
     cyber.shutdown()
 
