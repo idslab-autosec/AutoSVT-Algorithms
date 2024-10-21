@@ -167,7 +167,7 @@ def optimize(scenario: Scenario, max_cycle: int):
                     print("[*] Refuse the modification (rollback)")
         T = T * const.COOLING_FACTOR
 
-def genentic_algorithm(scenario_list: List[Scenario], mutation_prob: float, max_sim=200):
+def genentic_algorithm(scenario_list: List[Scenario], mutation_prob: float, max_sim: int):
     total_sim = len(scenario_list)
     total_corner_case = 0
     # 1. run simulation for all initial scenarios
@@ -230,7 +230,10 @@ def parse_arguments():
 
     parser.add_argument("-a", "--ads", help="Type of ADS", type=str, default="Apollo")
     parser.add_argument(
-        "-n", "--num-scenario", help="Number of scenarios", type=int, default=10
+        "-s", "--population-size", help="Population size", type=int, default=10
+    )
+    parser.add_argument(
+        "-n", "--num_scenario", help="Total #simulation", type=int, default=200
     )
     # parser.add_argument(
     #     "-t", "--init-temperature", help="Initial temperature", type=int, default=100
@@ -313,14 +316,14 @@ def main():
     # population size = args.num_scenario
     # total_sim = args.num_scenario
     total_sim = 0
-    for _ in range(args.num_scenario):
+    for _ in range(args.population_size):
         scenario = init_unique_scenario(client, state, scenario_list, factor, ads_type)
         scenario_list.append(scenario)
     # for scenario in scenario_list:
-    while total_sim < args.num_scenario:
+    while total_sim < args.population_size:
         sim_ret = scenario_list[total_sim].run_simulation(total_sim)
         scenario_list[total_sim].print_simulation_result()
-        scenario_list[total_sim].objective_function(args.num_scenario)
+        scenario_list[total_sim].objective_function(args.population_size)
         if sim_ret == const.ROUTE_TOO_LONG:
             scenario_list.pop(total_sim)
             new_scenario = init_unique_scenario(client, state, scenario_list, factor, ads_type)
@@ -329,8 +332,8 @@ def main():
             scenario_list[total_sim].record_scenario()
             total_sim += 1
             
-    print("[*] Finish initialization. Population size = {}.\n".format(args.num_scenario))
-    genentic_algorithm(scenario_list, mutation_prob=0.5)
+    print("[*] Finish initialization. Population size = {}.\n".format(args.population_size))
+    genentic_algorithm(scenario_list, mutation_prob=0.5, max_sim=args.num_scenario)
         
     cyber.shutdown()
 

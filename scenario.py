@@ -185,7 +185,7 @@ class Scenario(object):
         m.index = random.randint(0, len(self.npc_list) - 1)
         m.old_value = self.npc_list[m.index].speed
 
-        m.new_value = m.old_value + (1 - self.score) * random.uniform(-8, 8)
+        m.new_value = m.old_value + (1 - self.score) * random.uniform(-16, 16)
         m.new_value = min(const.VEHICLE_MAX_SPEED, m.new_value)
         m.new_value = max(const.VEHICLE_MIN_SPEED, m.new_value)
 
@@ -347,9 +347,9 @@ class Scenario(object):
     
     def mutate_npc(self) -> Mutation:
         r = random.random()
-        if r < 0.6 * self.score:
+        if r < 0.4 * self.score:
             m = self.mutate_npc_dp()
-        if r < self.score:
+        elif r < 0.8 * self.score:
             m = self.mutate_npc_blueprint()
         else:
             m = self.mutate_npc_speed()
@@ -357,7 +357,7 @@ class Scenario(object):
     
     def mutate(self) -> List[Mutation]:
         m_list = []
-        if random.random() < (1-self.score):
+        if random.random() < (1 - 0.8*self.score):
             m = self.add_random_npc()
         else:
             m = self.mutate_npc()
@@ -875,9 +875,7 @@ class Scenario(object):
         static_vector.append(self.weather.sun_altitude_angle)
         static_vector.append(self.weather.wetness)
         # 3. NPC
-        npc_list = []
-        if len(self.npc_list) > 3:
-            npc_list = self.npc_list[:3]
+        npc_list = self.npc_list[:3]
         while len(npc_list) < 3:
             npc_list.append(NPC(speed=0))
         for npc in npc_list:
