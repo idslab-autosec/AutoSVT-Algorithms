@@ -106,7 +106,8 @@ def main():
                     x='UMAP Dimension 1', 
                     y='UMAP Dimension 2', 
                     hover_name='File Name',
-                    title='UMAP Visualization with File Names')
+                    title='UMAP Visualization with File Names',
+                    color=labels)
 
     fig.show()
     # n_clusters = 8
