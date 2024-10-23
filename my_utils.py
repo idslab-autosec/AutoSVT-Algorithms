@@ -114,7 +114,12 @@ class ActorTrajectory(object):
         self.z.append(tf.location.z)
         self.yaw.append(tf.rotation.yaw)
         self.v.append(v)
-
+    def traj_to_list(self) -> List[List[float]]:
+        ret_list = []
+        for i in range(len(self.x)):
+            ret_list.append([self.x[i], self.y[i], self.z[i], self.yaw[i], self.v[i]])
+        return ret_list
+        
 def get_ego_vehicle(world):
     world.wait_for_tick()
     actor_list = world.get_actors()

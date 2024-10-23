@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
+from sklearn.cluster import DBSCAN
 import argparse
 
 def load_vectors_from_json(directory):
@@ -22,13 +23,11 @@ def load_vectors_from_json(directory):
                     file_names.append(filename)
                     vectors.append(data["vector"])
                     if data["stuck"] == 1:
-                        labels.append("red")
-                    elif data["collision"] == 1 and "ambulance" in filename:
-                        labels.append("green")
+                        labels.append("stuck")
                     elif data["collision"] == 1:
-                        labels.append("yellow")
+                        labels.append("collision")
                     else:
-                        labels.append("blue")
+                        labels.append("safe")
     return file_names, np.array(vectors), labels
 
 def my_umap(vectors):
@@ -70,7 +69,12 @@ def k_means_clustering(embedding, n_clusters):
     kmeans.fit(embedding)
     labels = kmeans.labels_
     
-    return labels, kmeans
+    return labels
+
+def dbscan_clustering(embedding, eps=0.5, min_samples=5):
+    dbscan = DBSCAN(eps, min_samples)
+    labels = dbscan.fit_predict(embedding)
+    return labels
 
 def plot_clusters(embedding, labels, n_clusters):
     plt.figure(figsize=(10, 7))

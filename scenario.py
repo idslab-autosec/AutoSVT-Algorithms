@@ -31,7 +31,7 @@ class Scenario(object):
         self.actor_traj_list: List[ActorTrajectory] = []
 
     def dump(self) -> dict:
-        return {
+        ret = {
             "seed": self.seed,
             "map": self.map.name,
             "sp": get_dict_transform(self.ego_sp),
@@ -59,9 +59,14 @@ class Scenario(object):
             ],
             "score": self.score,
             "collision": 1 if self.state.collision_event is not None else 0,
+            "collision_actor": self.state.collision_event.other_actor.type_id if self.state.collision_event is not None else "None",
             "stuck": 1 if self.state.stuck else 0,
             "vector": self.static_conf_to_vector() + self.ego_traj_to_vector()
         }
+        ret["trajectory"] = []
+        for t in self.actor_traj_list:
+            ret["trajectory"].append(t.traj_to_list())
+        return ret
 
     def load(self, scenario_dict: dict):
         self.seed = round(scenario_dict["seed"])
@@ -357,7 +362,7 @@ class Scenario(object):
     
     def mutate(self) -> List[Mutation]:
         m_list = []
-        if random.random() < (1 - 0.8*self.score):
+        if random.random() < (1 - 0.8*self.score) and len(self.npc_list) < 3:
             m = self.add_random_npc()
         else:
             m = self.mutate_npc()
@@ -876,6 +881,13 @@ class Scenario(object):
         static_vector.append(self.weather.wetness)
         # 3. NPC
         npc_list = self.npc_list[:3]
+        # if collision, only record the collision npc
+        if self.state.collision_event is not None:
+            for npc in npc_list:
+                if npc.blueprint.id == self.state.collision_event.other_actor.id:
+                    npc_list = [npc]
+                    break
+        
         while len(npc_list) < 3:
             npc_list.append(NPC(speed=0))
         for npc in npc_list:
