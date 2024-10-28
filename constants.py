@@ -53,8 +53,7 @@ WINDOW_SIZE = 10 # 10 intervals = 5 seconds
 LOW_SPEED_THRESHOLD = 5 # 5 km/h
 FOV_DISTANCE = 15 # m
 FOV_ANGLE = 10 # degree
-# W = [0.333, 0.333, 0.333] # weights of objective function
-W = [0.5, 0.3, 0.2]
+W = [0.4, 0.2, 0.1, 0.3] # weights of objective function
 
 MUT_UNKNOW = -1
 MUT_WEATHER_PD = 0

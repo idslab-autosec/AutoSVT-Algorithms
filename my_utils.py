@@ -13,6 +13,7 @@ from modules.common_msgs.planning_msgs.planning_pb2 import ADCTrajectory
 from modules.common_msgs.routing_msgs.routing_pb2 import RoutingRequest, LaneWaypoint
 from states import State
 import numpy as np
+import os
 
 class NPC(object):
     def __init__(self, type=const.VEHICLE, nav_type=const.AUTOPILOT, speed=10):
@@ -172,7 +173,9 @@ def get_dict_transform(tf: carla.Transform):
         "roll": tf.rotation.roll,
     }
 
-
+def sum_tf(tf: carla.Transform):
+    return tf.location.x + tf.location.y + tf.location.z + tf.rotation.yaw
+    
 # @param node: pycyber node
 # @param start_coordinate: (x, y, z) in apollo coordinate
 # @param end_coordinate: (x, y, z) in apollo coordinate
@@ -388,3 +391,12 @@ def subtract_lists(list1, list2):
     
     result = [a - b for a, b in zip(list1, list2)]
     return result
+
+def get_last_file_name(dir):
+    files = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
+
+    if not files:
+        return None
+
+    last_file = sorted(files)[-1]
+    return last_file

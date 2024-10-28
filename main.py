@@ -10,6 +10,9 @@ import carla
 from pycyber import cyber
 import argparse
 
+
+
+
 def optimize(scenario: Scenario, max_cycle: int):
     # the first time
     print("-" * 80)
@@ -167,25 +170,12 @@ def optimize(scenario: Scenario, max_cycle: int):
                     print("[*] Refuse the modification (rollback)")
         T = T * const.COOLING_FACTOR
 
-def genentic_algorithm(scenario_list: List[Scenario], mutation_prob: float, max_sim: int):
+def genentic_algorithm(scenario_list: List[Scenario], args):
     total_sim = len(scenario_list)
     total_corner_case = 0
-    # 1. run simulation for all initial scenarios
-    # population_size = len(scenario_list)
-    # for scenario in scenario_list:
-    #     sim_ret = scenario.run_simulation(total_sim)
-    #     scenario.print_simulation_result()
-    #     total_sim += 1
-    #     if sim_ret == const.CORNER_CASE:
-    #         total_corner_case += 1
-    #     scenario.objective_function(total_sim)
-    #     if sim_ret == const.ROUTE_TOO_LONG:
-    #         total_sim -= 1
-    #         scenario_list.remove(scenario)
-            
-
-    while total_sim < max_sim:
-        # 2. crossover
+    
+    while total_sim < args.num_scenario:
+        # crossover
         # update score for every scenario 
         for scenario in scenario_list:
             scenario.objective_function(total_sim) 
@@ -198,27 +188,37 @@ def genentic_algorithm(scenario_list: List[Scenario], mutation_prob: float, max_
             sim_ret = scenario_list[i].run_simulation(total_sim)
             scenario_list[i].print_simulation_result()
             total_sim += 1
+            
             if sim_ret == const.CORNER_CASE:
                 total_corner_case += 1
+                old_scenario = scenario_list.pop(i)
+                new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state.reset(), args, scenario_list)
+                scenario_list.append(new_scenario)
+                
             if sim_ret == const.ROUTE_TOO_LONG:
                 total_sim -= 1
+                old_scenario = scenario_list.pop(i)
+                new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state.reset(), args, scenario_list)
+                scenario_list.append(new_scenario)
+
+        # mutation
         for i in selected_i:
-            scenario_list[i].objective_function(total_sim)
-        
-        # 3. mutation (children)
-        for i in selected_i:
-            if random.random() < mutation_prob:
+            if random.random() < args.mutation_prob:
                 scenario_list[i].mutate()
                 sim_ret = scenario_list[i].run_simulation(total_sim)
                 scenario_list[i].print_simulation_result()
                 total_sim += 1
+                
                 if sim_ret == const.CORNER_CASE:
                     total_corner_case += 1
+                    old_scenario = scenario_list.pop(i)
+                    new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state.reset(), args, scenario_list)
+                    scenario_list.append(new_scenario)
                 if sim_ret == const.ROUTE_TOO_LONG:
                     total_sim -= 1
-        for i in selected_i:
-            scenario_list[i].objective_function(total_sim)
-        
+                    old_scenario = scenario_list.pop(i)
+                    new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state.reset(), args, scenario_list)
+                    scenario_list.append(new_scenario)
         
 
 def parse_arguments():
@@ -227,7 +227,7 @@ def parse_arguments():
     parser.add_argument(
         "-p", "--port", help="Carla server port", type=int, default=2000
     )
-
+    parser.add_argument("-o", "--output", help="Output directory", type=str, default="output")
     parser.add_argument("-a", "--ads", help="Type of ADS", type=str, default="Apollo")
     parser.add_argument(
         "-s", "--population-size", help="Population size", type=int, default=10
@@ -235,47 +235,43 @@ def parse_arguments():
     parser.add_argument(
         "-n", "--num_scenario", help="Total #simulation", type=int, default=200
     )
+    parser.add_argument(
+        "-m", "--mutation_prob", help="mutation probability", type=float, default=0.5
+    )
     # parser.add_argument(
     #     "-t", "--init-temperature", help="Initial temperature", type=int, default=100
     # )
-    parser.add_argument(
-        "-m",
-        "--max-cycle",
-        help="The maximum number of cycles at a certain temperature",
-        type=int,
-        default=8,
-    )
 
-    parser.add_argument(
-        "--rear",
-        help="[Factor1] Rear-end collision",
-        action="store_true",
-        default=False,
-    )
-    parser.add_argument(
-        "--water",
-        help="[Factor2] Standing water reflection",
-        action="store_true",
-        default=False,
-    )
-    parser.add_argument(
-        "--small",
-        help="[Factor3] Small targets",
-        action="store_true",
-        default=False,
-    )
-    parser.add_argument(
-        "--large",
-        help="[Factor4] Large targets",
-        action="store_true",
-        default=False,
-    )
-    parser.add_argument(
-        "--slope",
-        help="[Factor5] Uphill and downhill",
-        action="store_true",
-        default=False,
-    )
+    # parser.add_argument(
+    #     "--rear",
+    #     help="[Factor1] Rear-end collision",
+    #     action="store_true",
+    #     default=False,
+    # )
+    # parser.add_argument(
+    #     "--water",
+    #     help="[Factor2] Standing water reflection",
+    #     action="store_true",
+    #     default=False,
+    # )
+    # parser.add_argument(
+    #     "--small",
+    #     help="[Factor3] Small targets",
+    #     action="store_true",
+    #     default=False,
+    # )
+    # parser.add_argument(
+    #     "--large",
+    #     help="[Factor4] Large targets",
+    #     action="store_true",
+    #     default=False,
+    # )
+    # parser.add_argument(
+    #     "--slope",
+    #     help="[Factor5] Uphill and downhill",
+    #     action="store_true",
+    #     default=False,
+    # )
 
     arguments = parser.parse_args()
     return arguments
@@ -283,6 +279,8 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
     cyber.init("AutoSVT")
     node = cyber.Node("AutoSVT_node")
     state = State()
@@ -290,12 +288,12 @@ def main():
     client = carla.Client(args.host, args.port)
 
     scenario_list = []
-    factor = Factor()
-    factor.rear_end = args.rear
-    factor.standing_water = args.water
-    factor.small_target = args.small
-    factor.large_target = args.large
-    factor.slope = args.slope
+    # factor = Factor()
+    # factor.rear_end = args.rear
+    # factor.standing_water = args.water
+    # factor.small_target = args.small
+    # factor.large_target = args.large
+    # factor.slope = args.slope
 
     if args.ads.lower() == "apollo":
         ads_type = const.APOLLO
@@ -312,12 +310,9 @@ def main():
     #         sim_round += 1
     
     ### GA
-
-    # population size = args.num_scenario
-    # total_sim = args.num_scenario
     total_sim = 0
     for _ in range(args.population_size):
-        scenario = init_unique_scenario(client, state, scenario_list, factor, ads_type)
+        scenario = init_unique_scenario(client, state, args, scenario_list)
         scenario_list.append(scenario)
     # for scenario in scenario_list:
     while total_sim < args.population_size:
@@ -326,14 +321,14 @@ def main():
         scenario_list[total_sim].objective_function(args.population_size)
         if sim_ret == const.ROUTE_TOO_LONG:
             scenario_list.pop(total_sim)
-            new_scenario = init_unique_scenario(client, state, scenario_list, factor, ads_type)
+            new_scenario = init_unique_scenario(client, state, args, scenario_list)
             scenario_list.append(new_scenario)
         else:
             scenario_list[total_sim].record_scenario()
             total_sim += 1
             
     print("[*] Finish initialization. Population size = {}.\n".format(args.population_size))
-    genentic_algorithm(scenario_list, mutation_prob=0.5, max_sim=args.num_scenario)
+    genentic_algorithm(scenario_list, args)
         
     cyber.shutdown()
 

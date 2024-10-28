@@ -10,9 +10,13 @@ import traceback
 import numpy as np
 import copy
 import json
+import os
+from cluster import my_umap, load_vectors
+import pandas as pd
+from scipy.spatial.distance import cdist, pdist
 
 class Scenario(object):
-    def __init__(self, carla_client: carla.Client, state: State, ads=const.APOLLO):
+    def __init__(self, carla_client: carla.Client, state: State, args, ads=const.APOLLO):
         self.ads_type = ads
         self.client = carla_client
         self.world = self.client.get_world()
@@ -29,6 +33,11 @@ class Scenario(object):
         self.is_corner_case = False
         self.selected_count = 0
         self.actor_traj_list: List[ActorTrajectory] = []
+        self.umap_corner_case = None
+        self.diameter_umap_corner_case = 1
+        self.umap_distance_ratio = 0
+        self.output_dir = args.output
+        self.vector = None
 
     def dump(self) -> dict:
         ret = {
@@ -61,7 +70,7 @@ class Scenario(object):
             "collision": 1 if self.state.collision_event is not None else 0,
             "collision_actor": self.state.collision_event.other_actor.type_id if self.state.collision_event is not None else "None",
             "stuck": 1 if self.state.stuck else 0,
-            "vector": self.static_conf_to_vector() + self.ego_traj_to_vector()
+            "vector": self.vector.tolist()
         }
         ret["trajectory"] = []
         for t in self.actor_traj_list:
@@ -146,6 +155,28 @@ class Scenario(object):
         self.mutation_history.append(m)
         return m
 
+    def update_umap(self, dir):
+        current_directory = os.getcwd()
+        vectors, case_labels = load_vectors(current_directory + "/" + dir)
+        
+        if vectors.shape[0] > 2:
+            embedding, self.umap_model = my_umap(vectors)
+            df_umap = pd.DataFrame(embedding, columns=['UMAP Dimension 1', 'UMAP Dimension 2'])
+            df_umap["case_label"] = case_labels
+            self.umap_corner_case = df_umap[df_umap["case_label"] != "safe"][["UMAP Dimension 1", "UMAP Dimension 2"]].values
+            
+            self.diameter_umap_corner_case = np.max(pdist(self.umap_corner_case, metric='euclidean'))
+    
+    def umap_distance_to_corner_case(self):
+        self.vector = self.get_vector()
+        if self.diameter_umap_corner_case == 1:
+            # no enough record for umap
+            self.umap_distance_ratio = 0
+        else:
+            new_embedding = self.umap_model.transform(self.vector.reshape(1, -1))
+            avg_umap_distance = np.mean(cdist(new_embedding, self.umap_corner_case, metric='euclidean')[0])
+            self.umap_distance_ratio = min(1, avg_umap_distance / self.diameter_umap_corner_case)
+        
     def objective_function(self, total_sim, w=const.W) -> float:
         # range: [0,1]
         # greater function value -> more dangerous and more diverse scenario
@@ -153,23 +184,14 @@ class Scenario(object):
         if self.state.num_frames == 0:
             self.score = 0
         else:
-            # version 1
-            # d = max(self.state.min_dist - 2.5, 0.05)
-            # sigmoid_d = 1 / (1 + math.exp(-1/d))
-            # self.score = \
-            #     w[0] * sigmoid_d \
-            #     + w[1] * (1 - self.selected_count/total_sim) \
-            #     + w[2] * self.state.fog_noise_rate
-            
-            # version 2
             d_min = max(self.state.min_dist - 2.5, 0.05)
             sigmoid_d_inverse = 1 / (1 + math.exp(-1/d_min))
             
             self.score = \
                 w[0] * sigmoid_d_inverse \
-                + w[1] * (self.state.route_distace_to_dst / self.state.route_distance_sp_to_dp) \
-                + w[2] * (1 - self.selected_count/total_sim)
-            
+                + w[1] *  max(0, self.state.route_distace_to_dst / self.state.route_distance_sp_to_dp)\
+                + w[2] * (1 - self.selected_count/total_sim) \
+                + w[3] * self.umap_distance_ratio
             
         return self.score
 
@@ -789,7 +811,7 @@ class Scenario(object):
                         )
                         retval = const.CORNER_CASE
                         self.is_corner_case = True
-                        self.record_corner_case()
+                        # self.record_corner_case()
                         break
 
                     # Check stuck
@@ -804,7 +826,7 @@ class Scenario(object):
                         self.state.stuck = True
                         self.state.stuck_xy = (ego_location.x, ego_location.y)
                         print(
-                            "\n[*] Stuck for too long: {}. Ego location: ({:.2f}, {:.2f})".format(
+                            "\n[*] Stuck: {} seconds. Ego location: ({:.2f}, {:.2f})".format(
                                 self.state.stuck_duration,
                                 ego_location.x, 
                                 ego_location.y
@@ -812,7 +834,7 @@ class Scenario(object):
                         )
                         retval = const.CORNER_CASE
                         self.is_corner_case = True
-                        self.record_corner_case()
+                        # self.record_corner_case()
                         break
 
                     # Check apollo obstacles detection
@@ -836,7 +858,14 @@ class Scenario(object):
 
         finally:
             # Finalize simulation
-            self.objective_function(total_sim+1)
+            if retval != const.ROUTE_TOO_LONG:
+                self.update_umap(self.output_dir)
+                self.umap_distance_to_corner_case()
+                self.objective_function(total_sim+1)
+                self.record_scenario()
+            else:
+                self.score = 0
+            
             destroy_commands = []
             for v in actor_vehicles:
                 # v.set_autopilot(False)
@@ -848,7 +877,7 @@ class Scenario(object):
                 s.destroy()
             if self.ads_type == const.APOLLO:
                 self.client.apply_batch(destroy_commands)
-            self.record_scenario()
+            
             # Don't reload and exit if user requests so
             if retval == const.INTERRUPT:
                 return retval
@@ -868,9 +897,9 @@ class Scenario(object):
         #       speed.
         static_vector = []
         # 1. ego sp and dp
-        ego_sp_list = list(get_dict_transform(self.ego_sp).values())[:4]
-        static_vector += ego_sp_list
-        static_vector += subtract_lists(list(get_dict_transform(self.ego_dp).values())[:4], ego_sp_list)
+        static_vector.append(sum_tf(self.ego_sp))
+        static_vector.append(sum_tf(self.ego_dp) - static_vector[0])
+        
         # 2. weather parameters
         static_vector.append(self.weather.cloudiness)
         static_vector.append(self.weather.precipitation)
@@ -879,6 +908,7 @@ class Scenario(object):
         static_vector.append(self.weather.sun_azimuth_angle)
         static_vector.append(self.weather.sun_altitude_angle)
         static_vector.append(self.weather.wetness)
+        
         # 3. NPC
         npc_list = self.npc_list[:3]
         # if collision, only record the collision npc
@@ -892,13 +922,11 @@ class Scenario(object):
             npc_list.append(NPC(speed=0))
         for npc in npc_list:
             if npc.speed == 0:
-                static_vector += [0] * 12
+                static_vector += [0] * 4
             else:
-                static_vector += subtract_lists(list(get_dict_transform(npc.sp).values())[:4], ego_sp_list)
-                static_vector += subtract_lists(list(get_dict_transform(npc.dp).values())[:4], ego_sp_list)
-                static_vector.append(npc.bbox.x)
-                static_vector.append(npc.bbox.y)
-                static_vector.append(npc.bbox.z)
+                static_vector.append(sum_tf(npc.sp) - static_vector[0])
+                static_vector.append(sum_tf(npc.dp) - static_vector[0])
+                static_vector.append(npc.bbox.x + npc.bbox.y + npc.bbox.z)
                 static_vector.append(npc.speed)
         
         return static_vector
@@ -925,12 +953,15 @@ class Scenario(object):
         #     ret.append(0)
         return ret
     
+    def get_vector(self):
+        return np.array(self.static_conf_to_vector() + self.ego_traj_to_vector())
+    
     def record_scenario(self):
         with open(
             "output/{}.json".format(time.strftime("%Y-%m-%d-%H-%M")), "w"
         ) as f:
             json.dump(self.dump(), f)
-    
+        
     def record_corner_case(self):
         if self.state.stuck:
             with open(
@@ -950,6 +981,7 @@ class Scenario(object):
 def init_unique_scenario(
     carla_client,
     state: State,
+    args,
     scenario_list: List[Scenario],
     factor=Factor(),
     ads_type=const.APOLLO,
@@ -979,7 +1011,7 @@ def init_unique_scenario(
         dp = random.choice(spawn_points)
         distance = sp.location.distance(dp.location)
 
-    new_scenario = Scenario(carla_client, state, ads_type)
+    new_scenario = Scenario(carla_client, state, args, ads_type)
     new_scenario.ego_sp = sp
     new_scenario.ego_dp = dp
     new_scenario.weather.cloudiness = random.randint(0, 100)
@@ -997,7 +1029,7 @@ def init_unique_scenario(
         new_scenario.weather.sun_altitude_angle = random.randint(-90, 90)
         new_scenario.weather.wetness = random.randint(0, 100)
 
-    new_scenario.weather.fog_density = 80
+    new_scenario.weather.fog_density = 70
     new_scenario.weather.fog_distance = 0.750000
     new_scenario.weather.fog_falloff = 0.100000
     new_scenario.weather.scattering_intensity = 1.000000
