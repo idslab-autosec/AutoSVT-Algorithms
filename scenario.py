@@ -156,10 +156,9 @@ class Scenario(object):
         return m
 
     def update_umap(self, dir):
-        current_directory = os.getcwd()
-        vectors, case_labels = load_vectors(current_directory + "/" + dir)
+        vectors, case_labels = load_vectors(os.path.join(os.getcwd(), dir))
         
-        if vectors.shape[0] > 2:
+        if len(case_labels) > 0 and ("collision" in case_labels or "stuck" in case_labels):
             embedding, self.umap_model = my_umap(vectors)
             df_umap = pd.DataFrame(embedding, columns=['UMAP Dimension 1', 'UMAP Dimension 2'])
             df_umap["case_label"] = case_labels
@@ -170,7 +169,7 @@ class Scenario(object):
     def umap_distance_to_corner_case(self):
         self.vector = self.get_vector()
         if self.diameter_umap_corner_case == 1:
-            # no enough record for umap
+            # no enough corner case for analysis
             self.umap_distance_ratio = 0
         else:
             new_embedding = self.umap_model.transform(self.vector.reshape(1, -1))
@@ -374,9 +373,9 @@ class Scenario(object):
     
     def mutate_npc(self) -> Mutation:
         r = random.random()
-        if r < 0.4 * self.score:
+        if r < 0.6 * self.score:
             m = self.mutate_npc_dp()
-        elif r < 0.8 * self.score:
+        elif r < self.score:
             m = self.mutate_npc_blueprint()
         else:
             m = self.mutate_npc_speed()
@@ -958,7 +957,7 @@ class Scenario(object):
     
     def record_scenario(self):
         with open(
-            "output/{}.json".format(time.strftime("%Y-%m-%d-%H-%M")), "w"
+            "{}/{}.json".format(self.output_dir, time.strftime("%Y-%m-%d-%H-%M")), "w"
         ) as f:
             json.dump(self.dump(), f)
         
