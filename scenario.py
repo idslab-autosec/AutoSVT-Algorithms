@@ -156,9 +156,9 @@ class Scenario(object):
         return m
 
     def update_umap(self, dir):
-        vectors, case_labels = load_vectors(os.path.join(os.getcwd(), dir))
+        vectors, case_labels = load_vectors(os.path.join(os.path.dirname((os.path.abspath(__file__))), dir))
         
-        if len(case_labels) > 0 and ("collision" in case_labels or "stuck" in case_labels):
+        if len(case_labels) > 15 and (case_labels.count("collision") + case_labels.count("stuck") >= 2):
             embedding, self.umap_model = my_umap(vectors)
             df_umap = pd.DataFrame(embedding, columns=['UMAP Dimension 1', 'UMAP Dimension 2'])
             df_umap["case_label"] = case_labels
@@ -188,7 +188,7 @@ class Scenario(object):
             
             self.score = \
                 w[0] * sigmoid_d_inverse \
-                + w[1] *  max(0, self.state.route_distace_to_dst / self.state.route_distance_sp_to_dp)\
+                + w[1] *  max(0, self.state.route_distace_to_dst / max(5,self.state.route_distance_sp_to_dp))\
                 + w[2] * (1 - self.selected_count/total_sim) \
                 + w[3] * self.umap_distance_ratio
             
@@ -509,16 +509,16 @@ class Scenario(object):
             # sensors.append(sensor_lane)
             
             # Attach Fog LiDAR
-            fake_lidar_bp = self.blueprint_library.find("sensor.lidar.ray_cast_with_fog")
-            fake_lidar_bp.set_attribute('range', '100')
-            fake_lidar_bp.set_attribute('rotation_frequency', str(20))
-            fake_lidar_bp.set_attribute('upper_fov', '2.0')
-            fake_lidar_bp.set_attribute('lower_fov', '-26.8')
-            fake_lidar_bp.set_attribute('points_per_second', '10000')
-            fake_lidar_tf = carla.Transform(carla.Location(z=2.4))
-            fake_lidar = self.world.spawn_actor(fake_lidar_bp, fake_lidar_tf, attach_to=ego)
-            fake_lidar.listen(lambda raw_data: calculate_fog_noise_rate(raw_data, self.state))
-            sensors.append(fake_lidar)
+            # fake_lidar_bp = self.blueprint_library.find("sensor.lidar.ray_cast_with_fog")
+            # fake_lidar_bp.set_attribute('range', '100')
+            # fake_lidar_bp.set_attribute('rotation_frequency', str(20))
+            # fake_lidar_bp.set_attribute('upper_fov', '2.0')
+            # fake_lidar_bp.set_attribute('lower_fov', '-26.8')
+            # fake_lidar_bp.set_attribute('points_per_second', '10000')
+            # fake_lidar_tf = carla.Transform(carla.Location(z=2.4))
+            # fake_lidar = self.world.spawn_actor(fake_lidar_bp, fake_lidar_tf, attach_to=ego)
+            # fake_lidar.listen(lambda raw_data: calculate_fog_noise_rate(raw_data, self.state))
+            # sensors.append(fake_lidar)
 
             self.world.wait_for_tick()  # sync with simulator
 
@@ -819,14 +819,14 @@ class Scenario(object):
                     else:
                         self.state.stuck_duration = 0
 
-                    if self.state.stuck_duration > (
+                    if self.state.stuck_duration >= (
                         const.TIMEOUT_SIM_SEC / fixed_delta_seconds
                     ):
                         self.state.stuck = True
                         self.state.stuck_xy = (ego_location.x, ego_location.y)
                         print(
                             "\n[*] Stuck: {} seconds. Ego location: ({:.2f}, {:.2f})".format(
-                                self.state.stuck_duration,
+                                const.TIMEOUT_SIM_SEC,
                                 ego_location.x, 
                                 ego_location.y
                             )

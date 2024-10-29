@@ -173,7 +173,6 @@ def optimize(scenario: Scenario, max_cycle: int):
 def genentic_algorithm(scenario_list: List[Scenario], args):
     total_sim = len(scenario_list)
     total_corner_case = 0
-    
     while total_sim < args.num_scenario:
         # crossover
         # update score for every scenario 
@@ -192,13 +191,13 @@ def genentic_algorithm(scenario_list: List[Scenario], args):
             if sim_ret == const.CORNER_CASE:
                 total_corner_case += 1
                 old_scenario = scenario_list.pop(i)
-                new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state.reset(), args, scenario_list)
+                new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state, args, scenario_list)
                 scenario_list.append(new_scenario)
                 
             if sim_ret == const.ROUTE_TOO_LONG:
                 total_sim -= 1
                 old_scenario = scenario_list.pop(i)
-                new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state.reset(), args, scenario_list)
+                new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state, args, scenario_list)
                 scenario_list.append(new_scenario)
 
         # mutation
@@ -212,12 +211,12 @@ def genentic_algorithm(scenario_list: List[Scenario], args):
                 if sim_ret == const.CORNER_CASE:
                     total_corner_case += 1
                     old_scenario = scenario_list.pop(i)
-                    new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state.reset(), args, scenario_list)
+                    new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state, args, scenario_list)
                     scenario_list.append(new_scenario)
                 if sim_ret == const.ROUTE_TOO_LONG:
                     total_sim -= 1
                     old_scenario = scenario_list.pop(i)
-                    new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state.reset(), args, scenario_list)
+                    new_scenario = init_unique_scenario(old_scenario.client, old_scenario.state, args, scenario_list)
                     scenario_list.append(new_scenario)
         
 

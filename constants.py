@@ -1,4 +1,4 @@
-TIMEOUT_SIM_SEC = 180
+TIMEOUT_SIM_SEC = 90
 
 # Agent Types
 APOLLO = 1
