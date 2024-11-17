@@ -221,7 +221,7 @@ def genentic_algorithm(scenario_list: List[Scenario], args):
         
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Discovering corner cases.")
+    parser = argparse.ArgumentParser(description="Scenario generation in foggy weather.")
     parser.add_argument("--host", help="Carla server ip", type=str, default="127.0.0.1")
     parser.add_argument(
         "-p", "--port", help="Carla server port", type=int, default=2000
@@ -235,7 +235,7 @@ def parse_arguments():
         "-n", "--num_scenario", help="Total #simulation", type=int, default=200
     )
     parser.add_argument(
-        "-m", "--mutation_prob", help="mutation probability", type=float, default=0.5
+        "-m", "--mutation_prob", help="Mutation probability", type=float, default=0.5
     )
     # parser.add_argument(
     #     "-t", "--init-temperature", help="Initial temperature", type=int, default=100

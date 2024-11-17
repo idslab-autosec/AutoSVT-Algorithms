@@ -67,6 +67,7 @@ class Scenario(object):
                 for npc in self.npc_list
             ],
             "score": self.score,
+            "lane_change": 1 if self.state.change_lane else 0,
             "collision": 1 if self.state.collision_event is not None else 0,
             "collision_actor": self.state.collision_event.other_actor.type_id if self.state.collision_event is not None else "None",
             "stuck": 1 if self.state.stuck else 0,
